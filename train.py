@@ -7,14 +7,9 @@ import tensorflow as tf
 import utils
 import models
 from os.path import join
+from tools import ImageDataset
 
-TRAIN_PATH = './data/mirflickr/images1/images/'
-LOGS_Path = "./logs/"
-CHECKPOINTS_PATH = './checkpoints/'
-SAVED_MODELS = './saved_models'
-
-if not os.path.exists(CHECKPOINTS_PATH):
-    os.makedirs(CHECKPOINTS_PATH)
+# TRAIN_PATH = '/mnt/fast/nobackup/scratch4weeks/tb0035/projects/mia/datasets/ffhq256_lmdb2'
 
 def get_img_batch(files_list,
                   secret_size,
@@ -23,11 +18,11 @@ def get_img_batch(files_list,
 
     batch_cover = []
     batch_secret = []
-
+    nimgs = len(files_list)
     for i in range(batch_size):
-        img_cover_path = random.choice(files_list)
+        img_id = np.random.choice(nimgs)
         try:
-            img_cover = Image.open(img_cover_path).convert("RGB")
+            img_cover = files_list[img_id][0]['x'].convert("RGB")
             img_cover = ImageOps.fit(img_cover, size)
             img_cover = np.array(img_cover, dtype=np.float32) / 255.
         except:
@@ -44,25 +39,25 @@ def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('exp_name', type=str)
-    parser.add_argument('--secret_size', type=int, default=20)
+    parser.add_argument('--secret_size', type=int, default=100)
     parser.add_argument('--num_steps', type=int, default=140000)
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--lr', type=float, default=.0001)
-    parser.add_argument('--l2_loss_scale', type=float, default=1.5)
-    parser.add_argument('--l2_loss_ramp', type=int, default=20000)
+    parser.add_argument('--l2_loss_scale', type=float, default=2.)
+    parser.add_argument('--l2_loss_ramp', type=int, default=15000)
     parser.add_argument('--l2_edge_gain', type=float, default=10.0)
-    parser.add_argument('--l2_edge_ramp', type=int, default=20000)
-    parser.add_argument('--l2_edge_delay', type=int, default=60000)
-    parser.add_argument('--lpips_loss_scale', type=float, default=1)
-    parser.add_argument('--lpips_loss_ramp', type=int, default=20000)
-    parser.add_argument('--secret_loss_scale', type=float, default=1)
+    parser.add_argument('--l2_edge_ramp', type=int, default=10000)
+    parser.add_argument('--l2_edge_delay', type=int, default=80000)
+    parser.add_argument('--lpips_loss_scale', type=float, default=1.5)
+    parser.add_argument('--lpips_loss_ramp', type=int, default=15000)
+    parser.add_argument('--secret_loss_scale', type=float, default=1.5)
     parser.add_argument('--secret_loss_ramp', type=int, default=1)
-    parser.add_argument('--G_loss_scale', type=float, default=1)
-    parser.add_argument('--G_loss_ramp', type=int, default=20000)
-    parser.add_argument('--borders', type=str, choices=['no_edge','black','random','randomrgb','image','white'], default='black')
+    parser.add_argument('--G_loss_scale', type=float, default=0.5)
+    parser.add_argument('--G_loss_ramp', type=int, default=15000)
+    parser.add_argument('--borders', type=str, choices=['no_edge','black','random','randomrgb','image','white'], default='white')
     parser.add_argument('--y_scale', type=float, default=1.0)
-    parser.add_argument('--u_scale', type=float, default=1.0)
-    parser.add_argument('--v_scale', type=float, default=1.0)
+    parser.add_argument('--u_scale', type=float, default=100)
+    parser.add_argument('--v_scale', type=float, default=100)
     parser.add_argument('--no_gan', action='store_true')
     parser.add_argument('--rnd_trans', type=float, default=.1)
     parser.add_argument('--rnd_bri', type=float, default=.3)
@@ -71,7 +66,7 @@ def main():
     parser.add_argument('--rnd_hue', type=float, default=.1)
     parser.add_argument('--contrast_low', type=float, default=.5)
     parser.add_argument('--contrast_high', type=float, default=1.5)
-    parser.add_argument('--jpeg_quality', type=float, default=25)
+    parser.add_argument('--jpeg_quality', type=float, default=50)
     parser.add_argument('--no_jpeg', action='store_true')
     parser.add_argument('--rnd_trans_ramp', type=int, default=10000)
     parser.add_argument('--rnd_bri_ramp', type=int, default=1000)
@@ -80,13 +75,23 @@ def main():
     parser.add_argument('--rnd_noise_ramp', type=int, default=1000)
     parser.add_argument('--contrast_ramp', type=int, default=1000)
     parser.add_argument('--jpeg_quality_ramp', type=float, default=1000)
-    parser.add_argument('--no_im_loss_steps', help="Train without image loss for first x steps", type=int, default=500)
+    parser.add_argument('--no_im_loss_steps', help="Train without image loss for first x steps", type=int, default=1500)
     parser.add_argument('--pretrained', type=str, default=None)
+    parser.add_argument('--data_dir', type=str, default='/mnt/fast/nobackup/scratch4weeks/tb0035/projects/mia/datasets/ffhq256_lmdb2')
+    parser.add_argument('--data_list', type=str, default='/mnt/fast/nobackup/scratch4weeks/tb0035/projects/mia/datasets/ffhq256_lmdb2/train.csv')
+    parser.add_argument('-o', '--output', type=str, default='/mnt/fast/nobackup/scratch4weeks/tb0035/projects/diffsteg/stegastamp_tf')
+
     args = parser.parse_args()
 
     EXP_NAME = args.exp_name
+    LOGS_Path = os.path.join(args.output, "logs/")
+    CHECKPOINTS_PATH = os.path.join(args.output, 'checkpoints/')
+    SAVED_MODELS = os.path.join(args.output, 'saved_models')
 
-    files_list = glob.glob(join(TRAIN_PATH,"**/*"))
+    if not os.path.exists(CHECKPOINTS_PATH):
+        os.makedirs(CHECKPOINTS_PATH)
+
+    files_list = ImageDataset(args.data_dir, args.data_list)
 
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
@@ -152,7 +157,7 @@ def main():
 
     total_steps = len(files_list)//args.batch_size + 1
     global_step = 0
-
+    # import pdb; pdb.set_trace()
     while global_step < args.num_steps:
         for _ in range(min(total_steps,args.num_steps-global_step)):
             no_im_loss = global_step < args.no_im_loss_steps
