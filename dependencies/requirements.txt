@@ -1,0 +1,21 @@
+setuptools == 54.2.0
+numpy == 1.20.2
+scipy == 1.6.2
+tqdm == 4.51.0
+opencv-python == 4.5.1.48
+moviepy == 1.0.3
+lmdb == 1.1.1
+tensorflow-gpu == 1.13.1
+matplotlib == 3.4.0
+scikit-learn == 0.24.1
+cryptography == 2.3.1
+Cython == 0.29.22
+PyYAML == 5.4.1
+chainer == 7.7.0
+cupy-cuda100 >=7.7.0,<8.0.0
+slackclient >= 2.5.0
+scikit-image == 0.18.3
+pandas == 1.1.5
+protobuf == 3.19.0
+bchlib == 0.14.0
+stn == 1.0.1
